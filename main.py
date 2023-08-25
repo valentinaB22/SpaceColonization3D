@@ -30,7 +30,7 @@ puntos=[x,y,z]
 ####################################parametros
 max_dist=40
 min_dist=5
-
+angulo=90.0
 ###################################Clase Leaf
 
 class Leaf:
@@ -89,7 +89,7 @@ class Tree:
       self.leaves.append(leaf)
 
     v1 = np.array([0, 0, 20])
-    v2 = np.array([0, 0, 20])
+    v2 = np.array([1, 1, 1])
 
     # Crea la raiz del arbol y agrega la rama. Al ser el inicio, no tiene parent.
     root = Branch(v1, v2, None)
@@ -122,17 +122,7 @@ class Tree:
   def length(self, v):
     return math.sqrt(self.dotproduct(v, v))
 
-  def angle(self, v1, v2):
 
-    x1 = v1[0]
-    y1 = v1[1]
-    z1 = v1[2]
-    x2 = v2[0]
-    y2 = v2[1]
-    z2 = v2[2]
-    ang = math.acos(
-      (x1 * x2 + y1 * y2 + z1 * z2) / math.sqrt((x1 * x1 + y1 * y1 + z1 * z1) * (x2 * x2 + y2 * y2 + z2 * z2)))
-    return ang
 
   def grow(self):
     iter = 35
@@ -156,11 +146,15 @@ class Tree:
               break
             # busca la branch mas cercana
             elif ((d <= max_dist ** 2) and (closest == "null" or d < record)):
-              # grado=math.degrees(self.angle(l.pos,b.pos))%360
-              # if((grado > angulo_min) & (grado < angulo_max)):
-              closest = b;
-              closestDir = dir;
-              record = d;
+              f = b.dir / np.linalg.norm(b.dir)
+              o = (l.pos - b.pos) / np.linalg.norm(l.pos - b.pos)
+              c = np.array([f]).dot(o)
+              rad = math.acos(float(round(c[0], 6)))
+              grado = rad * (360 / math.pi)
+              if (grado < angulo):
+                closest = b
+                closestDir = dir
+                record = d
           # si encontró el punto mas cercano, lo normaliza, calcula la nueva direccion y suma una Leaf al count
           if (closest != "null"):
             closestDir = closestDir / np.linalg.norm(closestDir)
