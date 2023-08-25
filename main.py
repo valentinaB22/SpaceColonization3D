@@ -1,4 +1,5 @@
 from __future__ import division
+import random
 from stl import mesh
 import numpy as np
 import math
@@ -20,19 +21,16 @@ for i in your_mesh.vectors:
     y.append(j[1])
     z.append(j[2])
 
-puntos=[x,y,z]
-
-#x=x[:5000]
-#y=y[:5000]
-#z=z[:5000]
-
+indices = random.sample(range(len(x)),3000)
+print(len(x))
+print(indices)
 
 ####################################parametros
 max_dist=40
 min_dist=5
 angulo=90.0
-###################################Clase Leaf
 
+###################################Clase Leaf
 class Leaf:
   reached = False
 
@@ -43,7 +41,6 @@ class Leaf:
     self.reached = True
 
 ###################################Clase branch
-
 class Branch:
   count = 0
   len_aux = 5.0
@@ -73,7 +70,6 @@ class Branch:
     b=self.dir[1]*self.len_aux
     c=self.dir[2]*self.len_aux
     v= np.array([a,b,c])
-    #v=self.dir*len
     next = self.pos+v
     return next
 
@@ -84,10 +80,9 @@ class Tree:
 
   def __init__(self):
     # cargo los puntos
-    for i in range(len(x)):
+    for i in indices:
       leaf = Leaf(x[i], y[i], z[i])
       self.leaves.append(leaf)
-
     v1 = np.array([0, 0, 20])
     v2 = np.array([1, 1, 1])
 
@@ -105,7 +100,6 @@ class Tree:
   # Busca los puntos que esten lo suficientemente cerca
   def closeEnough(self, b):
     for l in self.leaves:
-      # d=np.linalg.norm(b.pos-l.pos)
       d = (b.pos[0] - l.pos[0]) ** 2 + (b.pos[1] - l.pos[1]) ** 2 + (b.pos[2] - l.pos[2]) ** 2
       if (d < max_dist ** 2):
         return True
@@ -115,14 +109,6 @@ class Tree:
   def setMag(self, rand, mag):
     coef = (mag / np.linalg.norm(rand))
     return [rand[0] * coef, rand[1] * coef, rand[2] * coef]
-
-  def dotproduct(self, v1, v2):
-    return sum((a * b) for a, b in zip(v1, v2))
-
-  def length(self, v):
-    return math.sqrt(self.dotproduct(v, v))
-
-
 
   def grow(self):
     iter = 35
@@ -137,7 +123,6 @@ class Tree:
           for b in self.branches:
             # calcula la distancia de la leaf a la branch
             dir = np.array([l.pos[0] - b.pos[0], l.pos[1] - b.pos[1], l.pos[2] - b.pos[2]])
-            # d = np.linalg.norm(dir)
             d = (l.pos[0] - b.pos[0]) ** 2 + (l.pos[1] - b.pos[1]) ** 2 + (l.pos[2] - b.pos[2]) ** 2
             # si es menor q la distancia minima, lo descarta
             if (d < min_dist ** 2):
@@ -168,12 +153,12 @@ class Tree:
           self.leaves.pop(i)
 
       # se usa para hacer el cremiento de las ramas sobre los 3 ejes, sino lo hace en 2d
-      for i in range(len(self.branches)):  # DEBERIA IR DE REVERSA
+      for i in range(len(self.branches)):
         b = self.branches[i]
         if (b.count > 0):
           b.dir = b.dir / b.count
           rand = np.random.random((3))
-          mag = 0.3  #########################
+          mag = 0.3
           rand = self.setMag(rand, mag)
           b.dir = b.dir + rand
           b.dir = b.dir / np.linalg.norm(b.dir)
@@ -185,21 +170,18 @@ class Tree:
   def show(self):
     fx = np.array([])
     fy = np.array([])
-    fz = np.array([])  # Array for z-coordinates
+    fz = np.array([])
     for i in range(len(self.leaves)):
       fx = np.append(fx, self.leaves[i].pos[0])
       fy = np.append(fy, self.leaves[i].pos[1])
-      fz = np.append(fz, self.leaves[i].pos[2])  # Append z-coordinate
-
+      fz = np.append(fz, self.leaves[i].pos[2])
     fig = go.Figure()
-
     x1 = np.array([])
     y1 = np.array([])
-    z1 = np.array([])  # Array for z-coordinates of branches
+    z1 = np.array([])
     x2 = np.array([])
     y2 = np.array([])
-    z2 = np.array([])  # Array for z-coordinates of parent branches
-
+    z2 = np.array([])
     for i in range(1, len(self.branches)):
       if self.branches[i].parent is not None:
         x1 = np.append(x1, self.branches[i].pos[0])
@@ -208,13 +190,10 @@ class Tree:
         x2 = np.append(x2, self.branches[i].parent.pos[0])
         y2 = np.append(y2, self.branches[i].parent.pos[1])
         z2 = np.append(z2, self.branches[i].parent.pos[2])
-
     # Scatter plot for branches
     fig.add_trace(go.Scatter3d(x=x1, y=y1, z=z1, mode='markers', marker=dict(color='blue',size=1)))
-
     # Scatter plot for parent branches
     fig.add_trace(go.Scatter3d(x=x2, y=y2, z=z2, mode='markers', marker=dict(color='green',size=1)))
-
     lines = []
     for i in range(len(x1)):
       lines.append(
@@ -226,15 +205,13 @@ class Tree:
           line=dict(color='red')
         )
       )
-
     for line in lines:
       fig.add_trace(line)
-
     fig.update_layout(scene=dict(aspectmode='data'))  # Set aspect mode to 'data' for uniform scaling
     fig.show()
 
+###############################MAIN
 tree = Tree()
-
 start = time.time()
 tree.grow()
 end = time.time()
