@@ -21,14 +21,15 @@ for i in your_mesh.vectors:
     y.append(j[1])
     z.append(j[2])
 
-indices = random.sample(range(len(x)),3000)
-print(len(x))
-print(indices)
+indices = random.sample(range(len(x)),1000)
+#print(len(x))
+#print(indices)
 
 ####################################parametros
 max_dist=40
 min_dist=5
-angulo=40.0
+angulo=90.0
+grosor_dibujo = 30.0
 
 ###################################Clase Leaf
 class Leaf:
@@ -48,6 +49,7 @@ class Branch:
   pos=None
   dir=None
   saveDir=None
+  depth=1
 
   def __init__(self, v, d, p):
     if p is None:
@@ -55,11 +57,16 @@ class Branch:
      self.pos=v
      self.dir=d
      self.saveDir=self.dir
+     self.depth = 1
     else:
       self.parent=p
       self.pos=self.parent.next()
       self.dir=self.parent.dir
       self.saveDir=self.dir
+      self.depth = p.get_depth()+1
+
+  def get_depth(self):
+    return self.depth
 
   def reset(self):
     self.count=0
@@ -194,24 +201,27 @@ class Tree:
         x2 = np.append(x2, self.branches[i].parent.pos[0])
         y2 = np.append(y2, self.branches[i].parent.pos[1])
         z2 = np.append(z2, self.branches[i].parent.pos[2])
+
     # Scatter plot for branches
     fig.add_trace(go.Scatter3d(x=x1, y=y1, z=z1, mode='markers', marker=dict(color='blue',size=1)))
     # Scatter plot for parent branches
     fig.add_trace(go.Scatter3d(x=x2, y=y2, z=z2, mode='markers', marker=dict(color='green',size=1)))
     lines = []
+
     for i in range(len(x1)):
+      grosor = grosor_dibujo/self.branches[i].get_depth()
       lines.append(
         go.Scatter3d(
           x=[x1[i], x2[i]],
           y=[y1[i], y2[i]],
           z=[z1[i], z2[i]],
           mode='lines',
-          line=dict(color='red')
+          line=dict(color='red',width=grosor)
         )
       )
     for line in lines:
       fig.add_trace(line)
-    fig.update_layout(scene=dict(aspectmode='data'))  # Set aspect mode to 'data' for uniform scaling
+    fig.update_layout(scene=dict(aspectmode='data'))
     fig.show()
 
 ###############################MAIN
