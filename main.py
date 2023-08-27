@@ -224,6 +224,7 @@ class Tree:
     fig.update_layout(scene=dict(aspectmode='data'))
     fig.show()
 
+
 ###############################MAIN
 tree = Tree()
 start = time.time()
