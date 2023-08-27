@@ -28,7 +28,7 @@ print(indices)
 ####################################parametros
 max_dist=40
 min_dist=5
-angulo=90.0
+angulo=40.0
 
 ###################################Clase Leaf
 class Leaf:
@@ -111,10 +111,12 @@ class Tree:
     return [rand[0] * coef, rand[1] * coef, rand[2] * coef]
 
   def grow(self):
-    iter = 35
-    while iter > 0:
+    iter= 0
+    while iter < 100:
+      numBranchAnterior = len(self.branches)
+      numLeafAnterior = len(self.leaves)
       print("iter:", iter, " - leaves: ", len(self.leaves), " - branches: ", len(self.branches))
-      iter = iter - 1
+      iter = iter + 1
       for l in self.leaves:
         if (l.reached == False):
           closest = "null"
@@ -165,6 +167,8 @@ class Tree:
           newB = Branch(None, None, b)
           self.branches.append(newB)
           b.reset()
+      if (numLeafAnterior == len(self.leaves)) & (numBranchAnterior == len(self.branches)):
+        break
 
   # gráfico
   def show(self):
