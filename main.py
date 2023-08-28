@@ -21,14 +21,15 @@ for i in your_mesh.vectors:
     y.append(j[1])
     z.append(j[2])
 
-indices = random.sample(range(len(x)),1000)
+indices = random.sample(range(len(x)),3000)
 #print(len(x))
 #print(indices)
 
 ####################################parametros
 max_dist=40
 min_dist=5
-angulo=90.0
+apertura_max=180.0
+apertura_min = 100.0
 grosor_dibujo = 30.0
 
 ###################################Clase Leaf
@@ -145,7 +146,7 @@ class Tree:
               c = np.array([f]).dot(o)
               rad = math.acos(float(round(c[0], 6)))
               grado = rad * (360 / math.pi)
-              if (grado < angulo):
+              if ((grado < apertura_max) & (grado >= apertura_min)):
                 closest = b
                 closestDir = dir
                 record = d
