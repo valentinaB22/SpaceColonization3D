@@ -9,6 +9,18 @@ import plotly.graph_objects as go
 # Load the STL files and add the vectors to the plot
 your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
 
+####################################parametros
+max_dist=40
+min_dist=5
+apertura_max=80.0
+apertura_min = 10.0
+grosor_dibujo = 30.0
+delta= 5 #coeficiente de variacion de apertura
+cant_puntos_inicial = 3000
+sigma = 0.01 # coeficiente de convergencia
+porcentaje_ocupacion= 50.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+cant_converger =3 #cant de iteraciones iguales para llegar a la convergencia
+
 #puntos de la imagen
 x=[]
 y=[]
@@ -21,16 +33,9 @@ for i in your_mesh.vectors:
     y.append(j[1])
     z.append(j[2])
 
-indices = random.sample(range(len(x)),3000)
+indices = random.sample(range(len(x)),cant_puntos_inicial)
 #print(len(x))
 #print(indices)
-
-####################################parametros
-max_dist=40
-min_dist=5
-apertura_max=180.0
-apertura_min = 100.0
-grosor_dibujo = 30.0
 
 ###################################Clase Leaf
 class Leaf:
@@ -83,6 +88,7 @@ class Branch:
 
 ####################################Clase tree
 class Tree:
+  cont = 0
   branches = []
   leaves = []
 
@@ -118,12 +124,29 @@ class Tree:
     coef = (mag / np.linalg.norm(rand))
     return [rand[0] * coef, rand[1] * coef, rand[2] * coef]
 
+  def fun_apertura(self,branch):
+    aper = apertura_max - (delta * branch.get_depth())
+    if (aper < apertura_min ):
+      return apertura_min
+    else:
+      return aper
+
+  def converge (self, ocupacion_actual,ocupacion_anterior):
+    if ((ocupacion_actual-ocupacion_anterior) <= sigma):
+      self.cont = self.cont +1
+      if(self.cont > cant_converger):
+        return True
+    else:
+      self.cont =0
+      return False
+    return False
+
   def grow(self):
     iter= 0
-    while iter < 100:
-      numBranchAnterior = len(self.branches)
-      numLeafAnterior = len(self.leaves)
-      print("iter:", iter, " - leaves: ", len(self.leaves), " - branches: ", len(self.branches))
+    ocupacion_actual = 0
+    while ocupacion_actual < porcentaje_ocupacion:
+      ocupacion_anterior = ocupacion_actual
+      print("iter:", iter, " - leaves: ", len(self.leaves), " - branches: ", len(self.branches) ," - porcentaje_ocupacion: ", ocupacion_actual)
       iter = iter + 1
       for l in self.leaves:
         if (l.reached == False):
@@ -146,7 +169,7 @@ class Tree:
               c = np.array([f]).dot(o)
               rad = math.acos(float(round(c[0], 6)))
               grado = rad * (360 / math.pi)
-              if ((grado < apertura_max) & (grado >= apertura_min)):
+              if (grado < apertura_max):
                 closest = b
                 closestDir = dir
                 record = d
@@ -161,7 +184,8 @@ class Tree:
       for i in range(len(self.leaves) - 1, 0, -1):
         if (self.leaves[i].reached):
           self.leaves.pop(i)
-
+      cant_leaves_ocupadas = cant_puntos_inicial - len(self.leaves)
+      ocupacion_actual = (cant_leaves_ocupadas * 100) / cant_puntos_inicial
       # se usa para hacer el cremiento de las ramas sobre los 3 ejes, sino lo hace en 2d
       for i in range(len(self.branches)):
         b = self.branches[i]
@@ -175,7 +199,8 @@ class Tree:
           newB = Branch(None, None, b)
           self.branches.append(newB)
           b.reset()
-      if (numLeafAnterior == len(self.leaves)) & (numBranchAnterior == len(self.branches)):
+      if (self.converge(ocupacion_actual, ocupacion_anterior)):
+        print("convergeeee")
         break
 
   # gráfico
