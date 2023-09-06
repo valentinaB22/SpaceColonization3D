@@ -12,13 +12,13 @@ your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
 ####################################parametros
 max_dist=40
 min_dist=5
-apertura_max=80.0
+apertura_max=90.0
 apertura_min = 10.0
 grosor_dibujo = 30.0
 delta= 5 #coeficiente de variacion de apertura
 cant_puntos_inicial = 3000
 sigma = 0.01 # coeficiente de convergencia
-porcentaje_ocupacion= 50.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+porcentaje_ocupacion= 30.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger =3 #cant de iteraciones iguales para llegar a la convergencia
 
 #puntos de la imagen
@@ -131,6 +131,13 @@ class Tree:
     else:
       return aper
 
+  def fun_apertura_automatico(self,branch,ocupacion_actual):
+    aper = apertura_max - (ocupacion_actual/100) * apertura_max
+    if (aper < apertura_min):
+      return apertura_min
+    else:
+      return aper
+
   def converge (self, ocupacion_actual,ocupacion_anterior):
     if ((ocupacion_actual-ocupacion_anterior) <= sigma):
       self.cont = self.cont +1
@@ -169,7 +176,9 @@ class Tree:
               c = np.array([f]).dot(o)
               rad = math.acos(float(round(c[0], 6)))
               grado = rad * (360 / math.pi)
-              if (grado < apertura_max):
+              #aper = self.fun_apertura(b)
+              aper = self.fun_apertura_automatico(b,ocupacion_actual)
+              if (grado < aper):
                 closest = b
                 closestDir = dir
                 record = d
