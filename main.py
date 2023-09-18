@@ -16,9 +16,9 @@ apertura_max=90.0
 apertura_min = 10.0
 grosor_dibujo = 30.0
 delta= 5 #coeficiente de variacion de apertura
-cant_puntos_inicial = 3000
+cant_puntos_inicial = 1000
 sigma = 0.01 # coeficiente de convergencia
-porcentaje_ocupacion= 30.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger =3 #cant de iteraciones iguales para llegar a la convergencia
 
 #puntos de la imagen
@@ -32,7 +32,6 @@ for i in your_mesh.vectors:
     x.append(j[0])
     y.append(j[1])
     z.append(j[2])
-
 indices = random.sample(range(len(x)),cant_puntos_inicial)
 #print(len(x))
 #print(indices)
@@ -148,6 +147,37 @@ class Tree:
       return False
     return False
 
+  #control de contorno
+  def ray_intersect(self,triangle, ray_origin, ray_direction):
+    # Calculate the normal of the triangle
+    triangle_normal = np.cross(triangle[1] - triangle[0], triangle[2] - triangle[0])
+    triangle_normal /= np.linalg.norm(triangle_normal)
+    # Check if the ray is parallel to the triangle
+    dot_product = np.dot(triangle_normal, ray_direction)
+    if np.abs(dot_product) < 1e-6:
+      return False
+    # Calculate the intersection point
+    t = np.dot(triangle[0] - ray_origin, triangle_normal) / dot_product
+    if t < 0:
+      return False
+    intersection_point = ray_origin + t * ray_direction
+    # Check if the intersection point is inside the triangle
+    u = np.dot(np.cross(triangle[1] - triangle[0], intersection_point - triangle[0]), triangle_normal)
+    v = np.dot(np.cross(triangle[2] - triangle[1], intersection_point - triangle[1]), triangle_normal)
+    w = np.dot(np.cross(triangle[0] - triangle[2], intersection_point - triangle[2]), triangle_normal)
+    return u >= 0 and v >= 0 and w >= 0
+
+  def is_point_inside_mesh(self, point):
+    # Check ray intersection with each triangle in the mesh
+    ray_direction = np.array([1, 0, 0])  # You can set your desired ray direction
+    intersections = 0
+
+    for triangle in your_mesh.vectors:
+      if self.ray_intersect(triangle, point, ray_direction):
+        intersections += 1
+    # If the number of intersections is odd, the point is inside the mesh
+    return intersections % 2 == 1
+
   def grow(self):
     iter= 0
     ocupacion_actual = 0
@@ -188,7 +218,6 @@ class Tree:
             closest.dir = np.array(
               [closest.dir[0] + closestDir[0], closest.dir[1] + closestDir[1], closest.dir[2] + closestDir[2]])
             closest.count = closest.count + 1
-
       # elimina las puntos que fueron descubiertos
       for i in range(len(self.leaves) - 1, 0, -1):
         if (self.leaves[i].reached):
@@ -205,14 +234,15 @@ class Tree:
           rand = self.setMag(rand, mag)
           b.dir = b.dir + rand
           b.dir = b.dir / np.linalg.norm(b.dir)
-          newB = Branch(None, None, b)
-          self.branches.append(newB)
-          b.reset()
+          #si esta dentro del contorno crece, sino no.
+          if self.is_point_inside_mesh(b.next()):
+            newB = Branch(None, None, b)
+            self.branches.append(newB)
+            b.reset()
       if (self.converge(ocupacion_actual, ocupacion_anterior)):
         print("convergeeee")
         break
 
-  # gráfico
   def show(self):
     fx = np.array([])
     fy = np.array([])
@@ -236,29 +266,35 @@ class Tree:
         x2 = np.append(x2, self.branches[i].parent.pos[0])
         y2 = np.append(y2, self.branches[i].parent.pos[1])
         z2 = np.append(z2, self.branches[i].parent.pos[2])
-
     # Scatter plot for branches
-    fig.add_trace(go.Scatter3d(x=x1, y=y1, z=z1, mode='markers', marker=dict(color='blue',size=1)))
+    fig.add_trace(go.Scatter3d(x=x1, y=y1, z=z1, mode='markers', marker=dict(color='black', size=1)))
     # Scatter plot for parent branches
-    fig.add_trace(go.Scatter3d(x=x2, y=y2, z=z2, mode='markers', marker=dict(color='green',size=1)))
+    fig.add_trace(go.Scatter3d(x=x2, y=y2, z=z2, mode='markers', marker=dict(color='black', size=1)))
     lines = []
-
     for i in range(len(x1)):
-      grosor = grosor_dibujo/self.branches[i].get_depth()
+      grosor = grosor_dibujo / self.branches[i].get_depth()
       lines.append(
         go.Scatter3d(
           x=[x1[i], x2[i]],
           y=[y1[i], y2[i]],
           z=[z1[i], z2[i]],
           mode='lines',
-          line=dict(color='red',width=grosor)
+          line=dict(color='red', width=grosor)
         )
       )
     for line in lines:
       fig.add_trace(line)
-    fig.update_layout(scene=dict(aspectmode='data'))
+    # Extract vertices and faces from the STL mesh
+    vertices = your_mesh.vectors
+    # Create a 3D surface mesh from the STL data
+    x, y, z = vertices[:, :, 0], vertices[:, :, 1], vertices[:, :, 2]
+    surface = go.Surface(x=x, y=y, z=z,opacity=0.1,colorscale='gray')
+    # Add the surface mesh to the figure
+    fig.add_trace(surface)
+    # Hide the Cartesian axis lines (optional)
+    fig.update_layout(scene=dict(aspectmode='data', xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
+    # Show the figure
     fig.show()
-
 
 ###############################MAIN
 tree = Tree()
