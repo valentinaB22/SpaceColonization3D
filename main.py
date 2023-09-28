@@ -1,25 +1,31 @@
 from __future__ import division
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import random
 from stl import mesh
 import numpy as np
 import math
 import time
+import matplotlib.pyplot as plt
+import trimesh
+
 import plotly.graph_objects as go
 
 # Load the STL files and add the vectors to the plot
-your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
-
+your_mesh = mesh.Mesh.from_file('Stanford_bunny_fix.stl')
+triiiimesh = trimesh.load('Stanford_bunny_fix.stl')
+print(triiiimesh.vertices[10])
 ####################################parametros
-max_dist=40
+max_dist=100
 min_dist=5
 apertura_max=90.0
-apertura_min = 10.0
-grosor_dibujo = 30.0
+apertura_min = 30.0
+grosor_dibujo = 10.0
 delta= 5 #coeficiente de variacion de apertura
-cant_puntos_inicial = 1000
 sigma = 0.01 # coeficiente de convergencia
 porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger =3 #cant de iteraciones iguales para llegar a la convergencia
+porcentaje = 2 # porcentaje de puntos de atraccion
 
 #puntos de la imagen
 x=[]
@@ -32,8 +38,10 @@ for i in your_mesh.vectors:
     x.append(j[0])
     y.append(j[1])
     z.append(j[2])
+cant_puntos_inicial = int(porcentaje*len(x)/100)
+print(cant_puntos_inicial)
 indices = random.sample(range(len(x)),cant_puntos_inicial)
-#print(len(x))
+print(len(x))
 #print(indices)
 
 ###################################Clase Leaf
@@ -49,7 +57,7 @@ class Leaf:
 ###################################Clase branch
 class Branch:
   count = 0
-  len_aux = 5.0
+  len_aux = 5
   parent=None
   pos=None
   dir=None
@@ -96,8 +104,13 @@ class Tree:
     for i in indices:
       leaf = Leaf(x[i], y[i], z[i])
       self.leaves.append(leaf)
-    v1 = np.array([0, 0, 20])
-    v2 = np.array([1, 1, 1])
+    #v1 = np.array([6.12387753 ,11.37816429 ,30.66895485]) #corazon
+    #v1 = np.array([0, 0, 20])  # rabbit_free
+    #v1 = np.array([0, 0, 0])
+    #v1 = np.array([50, 0, 0]) #esfera
+    v1 = np.array([27, -14, 14]) #para el stanford_bunny
+
+    v2 = np.array([1,1,1])
 
     # Crea la raiz del arbol y agrega la rama. Al ser el inicio, no tiene parent.
     root = Branch(v1, v2, None)
@@ -171,7 +184,6 @@ class Tree:
     # Check ray intersection with each triangle in the mesh
     ray_direction = np.array([1, 0, 0])  # You can set your desired ray direction
     intersections = 0
-
     for triangle in your_mesh.vectors:
       if self.ray_intersect(triangle, point, ray_direction):
         intersections += 1
@@ -235,14 +247,65 @@ class Tree:
           b.dir = b.dir + rand
           b.dir = b.dir / np.linalg.norm(b.dir)
           #si esta dentro del contorno crece, sino no.
-          if self.is_point_inside_mesh(b.next()):
+          #if self.is_point_inside_mesh(b.next()):
+          if triiiimesh.contains([b.next()]):
             newB = Branch(None, None, b)
             self.branches.append(newB)
             b.reset()
       if (self.converge(ocupacion_actual, ocupacion_anterior)):
-        print("convergeeee")
+        print("converge")
         break
 
+  def show(self):
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Scatter plot for leaves
+    fx = np.array([leaf.pos[0] for leaf in self.leaves])
+    fy = np.array([leaf.pos[1] for leaf in self.leaves])
+    fz = np.array([leaf.pos[2] for leaf in self.leaves])
+    ax.scatter(fx, fy, fz, c='black', marker='o', s=0.1)
+
+    # Scatter plot for branches
+    x1 = np.array([branch.pos[0] for branch in self.branches[1:] if branch.parent is not None])
+    y1 = np.array([branch.pos[1] for branch in self.branches[1:] if branch.parent is not None])
+    z1 = np.array([branch.pos[2] for branch in self.branches[1:] if branch.parent is not None])
+    x2 = np.array([branch.parent.pos[0] for branch in self.branches[1:] if branch.parent is not None])
+    y2 = np.array([branch.parent.pos[1] for branch in self.branches[1:] if branch.parent is not None])
+    z2 = np.array([branch.parent.pos[2] for branch in self.branches[1:] if branch.parent is not None])
+    ax.scatter(x1, y1, z1, c='black', marker='o', s=1)
+    ax.scatter(x2, y2, z2, c='black', marker='o', s=1)
+
+    # Scatter plot for lines (branches)
+    for i in range(len(x1)):
+      grosor = grosor_dibujo / self.branches[i + 1].get_depth()
+      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=grosor)
+
+    face_color = (0.5, 0.5, 0.5, 0.1)  # Gray with 50% transparency
+    edge_color = (0.5, 0.5, 0.5, 0.1)  # Gray with full opacity
+
+    # Plot the mesh with specified face and edge colors
+    ax.plot_trisurf(triiiimesh.vertices[:, 0], triiiimesh.vertices[:,1], triangles=triiiimesh.faces, Z=triiiimesh.vertices[:,2], alpha=0.1)
+    #for triangle in your_mesh.vectors:
+    #  ax.add_collection3d(Poly3DCollection([triangle], facecolors=[face_color], edgecolors=[edge_color], lw=0))
+    ax.grid(False)
+    # Remove axis lines and ticks
+    ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+    ax.w_yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+    ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+
+    # Auto-scale the plot to fit the mesh
+    scale = your_mesh.points.flatten()
+    ax.auto_scale_xyz(scale, scale, scale)
+    # Hide the axis labels and ticks (optional)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    plt.show()
+"""
   def show(self):
     fx = np.array([])
     fy = np.array([])
@@ -279,7 +342,7 @@ class Tree:
           y=[y1[i], y2[i]],
           z=[z1[i], z2[i]],
           mode='lines',
-          line=dict(color='red', width=grosor)
+          line=dict(color='#900040', width=grosor)
         )
       )
     for line in lines:
@@ -294,7 +357,8 @@ class Tree:
     # Hide the Cartesian axis lines (optional)
     fig.update_layout(scene=dict(aspectmode='data', xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
     # Show the figure
-    fig.show()
+    fig.show()      
+"""
 
 ###############################MAIN
 tree = Tree()
