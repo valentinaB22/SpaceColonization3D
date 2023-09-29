@@ -1,4 +1,6 @@
 from __future__ import division
+
+from matplotlib import pyplot as plt
 from stl import mesh
 import numpy as np
 import math
@@ -25,7 +27,6 @@ puntos=[x,y,z]
 #x=x[:5000]
 #y=y[:5000]
 #z=z[:5000]
-
 
 ####################################parametros
 max_dist=40
@@ -116,26 +117,8 @@ class Tree:
     coef = (mag / np.linalg.norm(rand))
     return [rand[0] * coef, rand[1] * coef, rand[2] * coef]
 
-  def dotproduct(self, v1, v2):
-    return sum((a * b) for a, b in zip(v1, v2))
-
-  def length(self, v):
-    return math.sqrt(self.dotproduct(v, v))
-
-  def angle(self, v1, v2):
-
-    x1 = v1[0]
-    y1 = v1[1]
-    z1 = v1[2]
-    x2 = v2[0]
-    y2 = v2[1]
-    z2 = v2[2]
-    ang = math.acos(
-      (x1 * x2 + y1 * y2 + z1 * z2) / math.sqrt((x1 * x1 + y1 * y1 + z1 * z1) * (x2 * x2 + y2 * y2 + z2 * z2)))
-    return ang
-
   def grow(self):
-    iter = 35
+    iter = 50
     while iter > 0:
       print("iter:", iter, " - leaves: ", len(self.leaves), " - branches: ", len(self.branches))
       iter = iter - 1
@@ -174,7 +157,7 @@ class Tree:
           self.leaves.pop(i)
 
       # se usa para hacer el cremiento de las ramas sobre los 3 ejes, sino lo hace en 2d
-      for i in range(len(self.branches)):  # DEBERIA IR DE REVERSA
+      for i in range(len(self.branches)):
         b = self.branches[i]
         if (b.count > 0):
           b.dir = b.dir / b.count
@@ -186,7 +169,7 @@ class Tree:
           newB = Branch(None, None, b)
           self.branches.append(newB)
           b.reset()
-
+  '''
   # gráfico
   def show(self):
     fx = np.array([])
@@ -239,8 +222,47 @@ class Tree:
     fig.update_layout(scene=dict(aspectmode='data'))  # Set aspect mode to 'data' for uniform scaling
     fig.show()
 
-tree = Tree()
+  '''
+  def show(self):
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
 
+    # Scatter plot for leaves
+    fx = np.array([leaf.pos[0] for leaf in self.leaves])
+    fy = np.array([leaf.pos[1] for leaf in self.leaves])
+    fz = np.array([leaf.pos[2] for leaf in self.leaves])
+    ax.scatter(fx, fy, fz, c='black', marker='o', s=0.1)
+
+    # Scatter plot for branches
+    x1 = np.array([branch.pos[0] for branch in self.branches[1:] if branch.parent is not None])
+    y1 = np.array([branch.pos[1] for branch in self.branches[1:] if branch.parent is not None])
+    z1 = np.array([branch.pos[2] for branch in self.branches[1:] if branch.parent is not None])
+    x2 = np.array([branch.parent.pos[0] for branch in self.branches[1:] if branch.parent is not None])
+    y2 = np.array([branch.parent.pos[1] for branch in self.branches[1:] if branch.parent is not None])
+    z2 = np.array([branch.parent.pos[2] for branch in self.branches[1:] if branch.parent is not None])
+    ax.scatter(x1, y1, z1, c='black', marker='o', s=1)
+    ax.scatter(x2, y2, z2, c='black', marker='o', s=1)
+
+    # Scatter plot for lines (branches)
+    for i in range(len(x1)):
+      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040')
+
+    ax.grid(False)
+    # Remove axis lines and ticks
+    ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+    ax.w_yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+    ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+
+    # Hide the axis labels and ticks (optional)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+    plt.show()
+############################main
+tree = Tree()
 start = time.time()
 tree.grow()
 end = time.time()
