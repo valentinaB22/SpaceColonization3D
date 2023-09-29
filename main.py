@@ -248,7 +248,7 @@ class Tree:
       ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040')
 
     ax.grid(False)
-    # Remove axis lines and ticks
+    # Remove axis lines and ticks exacampeon
     ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
     ax.w_yaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
     ax.w_zaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
