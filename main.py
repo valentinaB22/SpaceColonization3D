@@ -12,20 +12,20 @@ import trimesh
 import plotly.graph_objects as go
 
 # Load the STL files and add the vectors to the plot
-your_mesh = mesh.Mesh.from_file('Stanford_bunny_fix.stl')
-triiiimesh = trimesh.load('Stanford_bunny_fix.stl')
-print(triiiimesh.vertices[10])
+your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
+triiiimesh = trimesh.load('rabbit_free.stl')
+print(triiiimesh.vertices[1])
 ####################################parametros
 max_dist=100
-min_dist=5
-apertura_max=90.0
-apertura_min = 30.0
+min_dist =5
+apertura_max=40.0
+apertura_min = 20.0
 grosor_dibujo = 10.0
-delta= 5 #coeficiente de variacion de apertura
+delta= 30 #coeficiente de variacion de apertura
 sigma = 0.01 # coeficiente de convergencia
 porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
-cant_converger =3 #cant de iteraciones iguales para llegar a la convergencia
-porcentaje = 2 # porcentaje de puntos de atraccion
+cant_converger = 4 #cant de iteraciones iguales para llegar a la convergencia
+porcentaje_sampleo = 45 # porcentaje de puntos de atraccion
 
 #puntos de la imagen
 x=[]
@@ -38,7 +38,7 @@ for i in your_mesh.vectors:
     x.append(j[0])
     y.append(j[1])
     z.append(j[2])
-cant_puntos_inicial = int(porcentaje*len(x)/100)
+cant_puntos_inicial = int(porcentaje_sampleo*len(x)/100)
 print(cant_puntos_inicial)
 indices = random.sample(range(len(x)),cant_puntos_inicial)
 print(len(x))
@@ -57,7 +57,7 @@ class Leaf:
 ###################################Clase branch
 class Branch:
   count = 0
-  len_aux = 5
+  len_aux = 2
   parent=None
   pos=None
   dir=None
@@ -104,12 +104,20 @@ class Tree:
     for i in indices:
       leaf = Leaf(x[i], y[i], z[i])
       self.leaves.append(leaf)
-    #v1 = np.array([6.12387753 ,11.37816429 ,30.66895485]) #corazon
-    #v1 = np.array([0, 0, 20])  # rabbit_free
+    #v1 = np.array([6 ,10 ,30.66895485]) #corazon
+    v1 = np.array([0, 0, 20])  # rabbit_free
     #v1 = np.array([0, 0, 0])
     #v1 = np.array([50, 0, 0]) #esfera
-    v1 = np.array([27, -14, 14]) #para el stanford_bunny
-
+    #v1 = np.array([27, -14, 14]) #para el stanford_bunny
+    #v1 = np.array([10.5,13,5]) #hand
+    #v1 = np.array([3,88,3]) #hand desde dedo
+    #v1 = np.array([116,17, -15]) #torus
+    #v1 = np.array([6,160,5])  #human
+    #v1 = np.array([186, 131, 172])  # aorta
+    #v1 = np.array([206, 154, 221])  # pancreas
+    #v1 = np.array([177,100,199])  # colon
+    #v1 = np.array([153,91,143]) #higado
+    #v1 = np.array([897, 1677, -12])  # brain
     v2 = np.array([1,1,1])
 
     # Crea la raiz del arbol y agrega la rama. Al ser el inicio, no tiene parent.
@@ -213,6 +221,7 @@ class Tree:
               break
             # busca la branch mas cercana
             elif ((d <= max_dist ** 2) and (closest == "null" or d < record)):
+              """
               f = b.dir / np.linalg.norm(b.dir)
               o = (l.pos - b.pos) / np.linalg.norm(l.pos - b.pos)
               c = np.array([f]).dot(o)
@@ -221,9 +230,10 @@ class Tree:
               #aper = self.fun_apertura(b)
               aper = self.fun_apertura_automatico(b,ocupacion_actual)
               if (grado < aper):
-                closest = b
-                closestDir = dir
-                record = d
+              """
+              closest = b
+              closestDir = dir
+              record = d
           # si encontró el punto mas cercano, lo normaliza, calcula la nueva direccion y suma una Leaf al count
           if (closest != "null"):
             closestDir = closestDir / np.linalg.norm(closestDir)
@@ -264,7 +274,7 @@ class Tree:
     fx = np.array([leaf.pos[0] for leaf in self.leaves])
     fy = np.array([leaf.pos[1] for leaf in self.leaves])
     fz = np.array([leaf.pos[2] for leaf in self.leaves])
-    ax.scatter(fx, fy, fz, c='black', marker='o', s=0.1)
+    ax.scatter(fx, fy, fz, c='black', marker='o', s=0.01)
 
     # Scatter plot for branches
     x1 = np.array([branch.pos[0] for branch in self.branches[1:] if branch.parent is not None])
@@ -273,13 +283,13 @@ class Tree:
     x2 = np.array([branch.parent.pos[0] for branch in self.branches[1:] if branch.parent is not None])
     y2 = np.array([branch.parent.pos[1] for branch in self.branches[1:] if branch.parent is not None])
     z2 = np.array([branch.parent.pos[2] for branch in self.branches[1:] if branch.parent is not None])
-    ax.scatter(x1, y1, z1, c='black', marker='o', s=1)
-    ax.scatter(x2, y2, z2, c='black', marker='o', s=1)
+    ax.scatter(x1, y1, z1, c='#900040', marker='o', s=1)
+    ax.scatter(x2, y2, z2, c='#900040', marker='o', s=1)
 
     # Scatter plot for lines (branches)
     for i in range(len(x1)):
-      grosor = grosor_dibujo / self.branches[i + 1].get_depth()
-      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=grosor)
+      #grosor = grosor_dibujo / self.branches[i + 1].get_depth()
+      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=2)
 
     face_color = (0.5, 0.5, 0.5, 0.1)  # Gray with 50% transparency
     edge_color = (0.5, 0.5, 0.5, 0.1)  # Gray with full opacity
@@ -304,6 +314,9 @@ class Tree:
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_zticks([])
+
+    ax.view_init(azim=-50, elev=10)  # Adjust the angles as needed
+
     plt.show()
 """
   def show(self):
