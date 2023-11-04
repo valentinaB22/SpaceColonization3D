@@ -16,16 +16,16 @@ your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
 triiiimesh = trimesh.load('rabbit_free.stl')
 print(triiiimesh.vertices[1])
 ####################################parametros
-max_dist=100
-min_dist =5
+max_dist=1000
+min_dist =20
 apertura_max=40.0
 apertura_min = 20.0
 grosor_dibujo = 10.0
 delta= 30 #coeficiente de variacion de apertura
 sigma = 0.01 # coeficiente de convergencia
-porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+porcentaje_ocupacion= 100.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger = 4 #cant de iteraciones iguales para llegar a la convergencia
-porcentaje_sampleo = 45 # porcentaje de puntos de atraccion
+porcentaje_sampleo = 35 # porcentaje de puntos de atraccion
 
 #puntos de la imagen
 x=[]
@@ -289,7 +289,7 @@ class Tree:
     # Scatter plot for lines (branches)
     for i in range(len(x1)):
       #grosor = grosor_dibujo / self.branches[i + 1].get_depth()
-      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=2)
+      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=1.5)
 
     face_color = (0.5, 0.5, 0.5, 0.1)  # Gray with 50% transparency
     edge_color = (0.5, 0.5, 0.5, 0.1)  # Gray with full opacity
