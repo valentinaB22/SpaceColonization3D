@@ -8,6 +8,9 @@ import math
 import time
 import matplotlib.pyplot as plt
 import trimesh
+import meshio
+import tripy
+import vtkmodules.all as vtk
 
 import plotly.graph_objects as go
 
@@ -16,16 +19,16 @@ your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
 triiiimesh = trimesh.load('rabbit_free.stl')
 print(triiiimesh.vertices[1])
 ####################################parametros
-max_dist=1000
-min_dist =20
-apertura_max=40.0
-apertura_min = 20.0
-grosor_dibujo = 10.0
-delta= 30 #coeficiente de variacion de apertura
+max_dist=100
+min_dist =5
+apertura_max=90.0
+apertura_min = 10.0
+grosor_max = 20.0
+delta= 2 #coeficiente de variacion de apertura
 sigma = 0.01 # coeficiente de convergencia
-porcentaje_ocupacion= 100.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger = 4 #cant de iteraciones iguales para llegar a la convergencia
-porcentaje_sampleo = 35 # porcentaje de puntos de atraccion
+porcentaje_sampleo = 50 # porcentaje de puntos de atraccion
 
 #puntos de la imagen
 x=[]
@@ -57,12 +60,13 @@ class Leaf:
 ###################################Clase branch
 class Branch:
   count = 0
-  len_aux = 2
+  len_aux = 5
   parent=None
   pos=None
   dir=None
   saveDir=None
   depth=1
+  grosor=1
 
   def __init__(self, v, d, p):
     if p is None:
@@ -76,7 +80,13 @@ class Branch:
       self.pos=self.parent.next()
       self.dir=self.parent.dir
       self.saveDir=self.dir
-      self.depth = p.get_depth()+1
+      self.depth = p.get_depth() + 1
+      self.parent.incrementar_grosor()
+
+  def incrementar_grosor(self):
+    self.grosor = self.grosor + 1
+    if self.parent:
+      self.parent.incrementar_grosor()
 
   def get_depth(self):
     return self.depth
@@ -221,19 +231,17 @@ class Tree:
               break
             # busca la branch mas cercana
             elif ((d <= max_dist ** 2) and (closest == "null" or d < record)):
-              """
               f = b.dir / np.linalg.norm(b.dir)
               o = (l.pos - b.pos) / np.linalg.norm(l.pos - b.pos)
               c = np.array([f]).dot(o)
               rad = math.acos(float(round(c[0], 6)))
               grado = rad * (360 / math.pi)
-              #aper = self.fun_apertura(b)
-              aper = self.fun_apertura_automatico(b,ocupacion_actual)
+              aper = self.fun_apertura(b)
+              #aper = self.fun_apertura_automatico(b,ocupacion_actual)
               if (grado < aper):
-              """
-              closest = b
-              closestDir = dir
-              record = d
+                closest = b
+                closestDir = dir
+                record = d
           # si encontró el punto mas cercano, lo normaliza, calcula la nueva direccion y suma una Leaf al count
           if (closest != "null"):
             closestDir = closestDir / np.linalg.norm(closestDir)
@@ -274,7 +282,7 @@ class Tree:
     fx = np.array([leaf.pos[0] for leaf in self.leaves])
     fy = np.array([leaf.pos[1] for leaf in self.leaves])
     fz = np.array([leaf.pos[2] for leaf in self.leaves])
-    ax.scatter(fx, fy, fz, c='black', marker='o', s=0.01)
+    ax.scatter(fx, fy, fz, c='black', marker='o', s=0.001)
 
     # Scatter plot for branches
     x1 = np.array([branch.pos[0] for branch in self.branches[1:] if branch.parent is not None])
@@ -283,13 +291,19 @@ class Tree:
     x2 = np.array([branch.parent.pos[0] for branch in self.branches[1:] if branch.parent is not None])
     y2 = np.array([branch.parent.pos[1] for branch in self.branches[1:] if branch.parent is not None])
     z2 = np.array([branch.parent.pos[2] for branch in self.branches[1:] if branch.parent is not None])
-    ax.scatter(x1, y1, z1, c='#900040', marker='o', s=1)
-    ax.scatter(x2, y2, z2, c='#900040', marker='o', s=1)
+    ax.scatter(x1, y1, z1, c='#900040', marker='o', s=0.01)
+    ax.scatter(x2, y2, z2, c='#900040', marker='o', s=0.01)
+
+    grosores = []
+    nor = np.array([])
+    for g in range(len(x1)):
+      nor = np.append(nor,self.branches[g+1].grosor)
 
     # Scatter plot for lines (branches)
     for i in range(len(x1)):
-      #grosor = grosor_dibujo / self.branches[i + 1].get_depth()
-      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=1.5)
+      grosordib = self.branches[i+1].grosor/np.linalg.norm(nor)*grosor_max
+      ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=grosordib)
+      grosores.append((grosordib))
 
     face_color = (0.5, 0.5, 0.5, 0.1)  # Gray with 50% transparency
     edge_color = (0.5, 0.5, 0.5, 0.1)  # Gray with full opacity
@@ -297,7 +311,7 @@ class Tree:
     # Plot the mesh with specified face and edge colors
     ax.plot_trisurf(triiiimesh.vertices[:, 0], triiiimesh.vertices[:,1], triangles=triiiimesh.faces, Z=triiiimesh.vertices[:,2], alpha=0.1)
     #for triangle in your_mesh.vectors:
-    #  ax.add_collection3d(Poly3DCollection([triangle], facecolors=[face_color], edgecolors=[edge_color], lw=0))
+     #ax.add_collection3d(Poly3DCollection([triangle], facecolors=[face_color], edgecolors=[edge_color], lw=0))
     ax.grid(False)
     # Remove axis lines and ticks
     ax.w_xaxis.line.set_color((1.0, 1.0, 1.0, 0.0))
@@ -314,63 +328,244 @@ class Tree:
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_zticks([])
-
     ax.view_init(azim=-50, elev=10)  # Adjust the angles as needed
 
+    #------------------------------------------------------------------MALLA 3d
+
+    # Create points
+    points = vtk.vtkPoints()
+    for i in range(len(x1)):
+      points.InsertNextPoint(x1[i], y1[i], z1[i])
+      points.InsertNextPoint(x2[i], y2[i], z2[i])
+
+    # Create lines
+    lines = vtk.vtkCellArray()
+    for i in range(len(x1)):
+      line = vtk.vtkLine()
+      line.GetPointIds().SetId(0, 2 * i)  # Set the starting point of the line
+      line.GetPointIds().SetId(1, 2 * i + 1)  # Set the ending point of the line
+      lines.InsertNextCell(line)
+
+    # Create radii array
+    radii_array = vtk.vtkDoubleArray()
+    radii_array.SetNumberOfValues(len(grosores))
+    radii_array.SetName("Radii")
+    for i, radius in enumerate(grosores):
+      radii_array.SetValue(i, radius)
+
+    # Create a polydata object
+    polydata = vtk.vtkPolyData()
+    polydata.SetPoints(points)
+    polydata.SetLines(lines)
+    polydata.GetCellData().AddArray(radii_array)
+
+   # polydata = vtk.vtkPolyDataNormals(polydata.GetData())
+
+    # Write the polydata to a file
+    writer = vtk.vtkXMLPolyDataWriter()
+    writer.SetFileName("outputCHAT.vtp")  # Output file name
+    writer.SetInputData(polydata)
+    writer.Write()
+
+    """
+    # Create a VTK renderer and render window
+    renderer = vtk.vtkRenderer()
+    render_window = vtk.vtkRenderWindow()
+    render_window.AddRenderer(renderer)
+
+    # Create a VTK polydata object to represent the lines
+    polydata = vtk.vtkPolyData()
+    points = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
+    radii = vtk.vtkDoubleArray()
+    radii.SetName("TubeRadius")
+    radii.SetNumberOfValues(len(grosores))
+
+    # Add points and lines to the polydata
+    for i in range(len(x1)):
+      points.InsertNextPoint(x1[i], y1[i], z1[i])
+      points.InsertNextPoint(x2[i], y2[i], z2[i])
+      lines.InsertNextCell(2)
+      lines.InsertCellPoint(2 * i)
+      lines.InsertCellPoint(2 * i + 1)
+      radius = grosores[i]  # Assuming you have a 'radius' value in your data
+      radii.InsertNextValue(radius)
+
+    polydata.SetPoints(points)
+    polydata.SetLines(lines)
+    polydata.GetPointData().AddArray(radii)
+    polydata.GetPointData().SetActiveScalars("TubeRadius")
+    
+    """
+    """
+    renderer = vtk.vtkRenderer()
+    render_window = vtk.vtkRenderWindow()
+    render_window.AddRenderer(renderer)
+
+    # Create a VTK polydata object to represent the lines
+    polydata = vtk.vtkPolyData()
+    points = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
+
+    # Add points and lines to the polydata
+    for i in range(len(x1)):
+      points.InsertNextPoint(x1[i], y1[i], z1[i])
+      points.InsertNextPoint(x2[i], y2[i], z2[i])
+      lines.InsertNextCell(2)
+      lines.InsertCellPoint(2 * i)
+      lines.InsertCellPoint(2 * i + 1)
+
+    polydata.SetPoints(points)
+    polydata.SetLines(lines)
+
+    # Create a tube filter to add thickness to the lines
+    tube_filter = vtk.vtkTubeFilter()
+    tube_filter.SetInputData(polydata)
+    tube_filter.SetRadius(0.2)  # Adjust the radius as needed for thickness
+    tube_filter.SetNumberOfSides(32)  # Adjust the number of sides for the tube
+
+    # Create a mapper and actor for the tubes
+    tube_mapper = vtk.vtkPolyDataMapper()
+    tube_mapper.SetInputConnection(tube_filter.GetOutputPort())
+    tube_actor = vtk.vtkActor()
+    tube_actor.SetMapper(tube_mapper)
+    tube_actor.GetProperty().SetColor(0.56, 0, 0.25)
+
+    # Add the tube actor to the renderer
+    renderer.AddActor(tube_actor)
+
+    writer = vtk.vtkXMLPolyDataWriter()
+    writer.SetFileName("centerlinevtp.vtp")
+    writer.SetInputConnection(tube_filter.GetOutputPort())
+    writer.Write()
+"""
+    """
+    # -------------------COMO GRAFICAR CON TUBOS ------------------------------
+    # Create a VTK renderer and render window
+    renderer = vtk.vtkRenderer()
+    render_window = vtk.vtkRenderWindow()
+    render_window.AddRenderer(renderer)
+
+    # Your existing code here
+
+    # Create a VTK polydata object to represent the lines
+    polydata = vtk.vtkPolyData()
+    points = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
+
+    # Add points and lines to the polydata
+    for i in range(len(x1)):
+      points.InsertNextPoint(x1[i], y1[i], z1[i])
+      points.InsertNextPoint(x2[i], y2[i], z2[i])
+      lines.InsertNextCell(2)
+      lines.InsertCellPoint(2 * i)
+      lines.InsertCellPoint(2 * i + 1)
+
+    polydata.SetPoints(points)
+    polydata.SetLines(lines)
+
+    # Create a tube filter to add thickness to the lines
+    tube_filter = vtk.vtkTubeFilter()
+    tube_filter.SetInputData(polydata)
+    tube_filter.SetRadius(0.2)  # Adjust the radius as needed for thickness
+    tube_filter.SetNumberOfSides(32)  # Adjust the number of sides for the tube
+
+    # Create a mapper and actor for the tubes
+    tube_mapper = vtk.vtkPolyDataMapper()
+    tube_mapper.SetInputConnection(tube_filter.GetOutputPort())
+    tube_actor = vtk.vtkActor()
+    tube_actor.SetMapper(tube_mapper)
+    tube_actor.GetProperty().SetColor(0.56, 0, 0.25)
+
+    # Add the tube actor to the renderer
+    renderer.AddActor(tube_actor)
+
+    # Create a writer for the tubes' STL file
+    tube_stl_writer = vtk.vtkSTLWriter()
+    tube_stl_writer.SetFileName("tubes.stl")
+    tube_stl_writer.SetInputConnection(tube_filter.GetOutputPort())
+    tube_stl_writer.SetFileTypeToBinary()  # Prefer binary format for STL
+    tube_stl_writer.Write()
+
+    # Set up a render window and interactor
+    render_window.SetSize(800, 800)
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(render_window)
+
+    # Start the rendering loop
+    render_window.Render()
+    iren.Start()
+    """
     plt.show()
 """
-  def show(self):
-    fx = np.array([])
-    fy = np.array([])
-    fz = np.array([])
-    for i in range(len(self.leaves)):
-      fx = np.append(fx, self.leaves[i].pos[0])
-      fy = np.append(fy, self.leaves[i].pos[1])
-      fz = np.append(fz, self.leaves[i].pos[2])
-    fig = go.Figure()
-    x1 = np.array([])
-    y1 = np.array([])
-    z1 = np.array([])
-    x2 = np.array([])
-    y2 = np.array([])
-    z2 = np.array([])
-    for i in range(1, len(self.branches)):
-      if self.branches[i].parent is not None:
-        x1 = np.append(x1, self.branches[i].pos[0])
-        y1 = np.append(y1, self.branches[i].pos[1])
-        z1 = np.append(z1, self.branches[i].pos[2])
-        x2 = np.append(x2, self.branches[i].parent.pos[0])
-        y2 = np.append(y2, self.branches[i].parent.pos[1])
-        z2 = np.append(z2, self.branches[i].parent.pos[2])
-    # Scatter plot for branches
-    fig.add_trace(go.Scatter3d(x=x1, y=y1, z=z1, mode='markers', marker=dict(color='black', size=1)))
-    # Scatter plot for parent branches
-    fig.add_trace(go.Scatter3d(x=x2, y=y2, z=z2, mode='markers', marker=dict(color='black', size=1)))
-    lines = []
+    #------------------------------------------------------------------MALLA 3d
+    # --------------------------------------CON TRIANGULOS-------------------------
+    # Create a VTK renderer and render window
+    renderer = vtk.vtkRenderer()
+    render_window = vtk.vtkRenderWindow()
+    render_window.AddRenderer(renderer)
+
+    # Create a VTK polydata object to represent the mesh
+    polydata = vtk.vtkPolyData()
+    points = vtk.vtkPoints()
+    triangles = vtk.vtkCellArray()
+
+    # Add points to the polydata
     for i in range(len(x1)):
-      grosor = grosor_dibujo / self.branches[i].get_depth()
-      lines.append(
-        go.Scatter3d(
-          x=[x1[i], x2[i]],
-          y=[y1[i], y2[i]],
-          z=[z1[i], z2[i]],
-          mode='lines',
-          line=dict(color='#900040', width=grosor)
-        )
-      )
-    for line in lines:
-      fig.add_trace(line)
-    # Extract vertices and faces from the STL mesh
-    vertices = your_mesh.vectors
-    # Create a 3D surface mesh from the STL data
-    x, y, z = vertices[:, :, 0], vertices[:, :, 1], vertices[:, :, 2]
-    surface = go.Surface(x=x, y=y, z=z,opacity=0.1,colorscale='gray')
-    # Add the surface mesh to the figure
-    fig.add_trace(surface)
-    # Hide the Cartesian axis lines (optional)
-    fig.update_layout(scene=dict(aspectmode='data', xaxis_visible=False, yaxis_visible=False, zaxis_visible=False))
-    # Show the figure
-    fig.show()      
+      # Add two points at different Z positions to create a surface
+      z1_lower = z1[i]
+      z2_lower = z2[i] - 0.1  # Adjust the Z difference as needed
+      z1_upper = z1[i]
+      z2_upper = z2[i] + 0.1  # Adjust the Z difference as needed
+
+      points.InsertNextPoint(x1[i], y1[i], z1_lower)
+      points.InsertNextPoint(x2[i], y2[i], z2_lower)
+      points.InsertNextPoint(x1[i], y1[i], z1_upper)
+      points.InsertNextPoint(x2[i], y2[i], z2_upper)
+
+      # Create two triangles to form a surface
+      triangles.InsertNextCell(3)
+      triangles.InsertCellPoint(4 * i)
+      triangles.InsertCellPoint(4 * i + 1)
+      triangles.InsertCellPoint(4 * i + 2)
+
+      triangles.InsertNextCell(3)
+      triangles.InsertCellPoint(4 * i + 1)
+      triangles.InsertCellPoint(4 * i + 2)
+      triangles.InsertCellPoint(4 * i + 3)
+
+    polydata.SetPoints(points)
+    polydata.SetPolys(triangles)
+
+    # Create a mapper and actor for the polydata
+    mapper = vtk.vtkPolyDataMapper()
+    mapper.SetInputData(polydata)
+
+    actor = vtk.vtkActor()
+    actor.SetMapper(mapper)
+    actor.GetProperty().SetColor(0.56, 0, 0.25)
+
+    # Add the actor to the renderer
+    renderer.AddActor(actor)
+
+    # Set up a render window and interactor
+    render_window.SetSize(800, 800)
+    iren = vtk.vtkRenderWindowInteractor()
+    iren.SetRenderWindow(render_window)
+
+    # Save the scene as an STL file
+
+    stl_writer = vtk.vtkSTLWriter()
+    stl_writer.SetFileName("3d_scene.stl")
+    stl_writer.SetInputData(polydata)
+
+    # Ensure binary format (MeshLab prefers this)
+    stl_writer.SetFileTypeToBinary()
+    stl_writer.Write()
+    render_window.Render()
+    iren.Start()
+
+    plt.show()       
 """
 
 ###############################MAIN
