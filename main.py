@@ -8,25 +8,34 @@ import math
 import time
 import matplotlib.pyplot as plt
 import trimesh
-import meshio
-import tripy
-import vtkmodules.all as vtk
-
-import plotly.graph_objects as go
+import vtk
+import vmtk.vmtkmarchingcubes as vmtkm
+import vmtk.vmtkcenterlineattributes as vmtkcenterlineattributes
+import gmsh
+from vmtk import vmtkscripts
+from vmtk import vmtkmeshgenerator, vmtksurfaceviewer
+import vmtk.vmtkcenterlinemodeller as clm
+import vmtk.vmtkimagewriter as vi
+import vmtk.vmtksurfacewriter as vmtks
+import  vmtk.vmtkcenterlines as vmtkc
+import vmtk.vmtknumpytocenterlines as vmtkn
+import vmtk.vmtkscripts as vmtksc
+import vmtk.vmtkcenterlineviewer as view
+import vmtk.vmtkimageviewer as imviewer
 
 # Load the STL files and add the vectors to the plot
-your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
-triiiimesh = trimesh.load('rabbit_free.stl')
+your_mesh = mesh.Mesh.from_file('torus.stl')
+triiiimesh = trimesh.load('torus.stl')
 print(triiiimesh.vertices[1])
 ####################################parametros
 max_dist=100
 min_dist =5
 apertura_max=90.0
-apertura_min = 10.0
-grosor_max = 20.0
+apertura_min = 90.0
+grosor_max = 1
 delta= 2 #coeficiente de variacion de apertura
 sigma = 0.01 # coeficiente de convergencia
-porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+porcentaje_ocupacion= 50.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger = 4 #cant de iteraciones iguales para llegar a la convergencia
 porcentaje_sampleo = 50 # porcentaje de puntos de atraccion
 
@@ -115,13 +124,13 @@ class Tree:
       leaf = Leaf(x[i], y[i], z[i])
       self.leaves.append(leaf)
     #v1 = np.array([6 ,10 ,30.66895485]) #corazon
-    v1 = np.array([0, 0, 20])  # rabbit_free
+    #v1 = np.array([0, 0, 20])  # rabbit_free
     #v1 = np.array([0, 0, 0])
     #v1 = np.array([50, 0, 0]) #esfera
     #v1 = np.array([27, -14, 14]) #para el stanford_bunny
     #v1 = np.array([10.5,13,5]) #hand
     #v1 = np.array([3,88,3]) #hand desde dedo
-    #v1 = np.array([116,17, -15]) #torus
+    v1 = np.array([116,17, -15]) #torus
     #v1 = np.array([6,160,5])  #human
     #v1 = np.array([186, 131, 172])  # aorta
     #v1 = np.array([206, 154, 221])  # pancreas
@@ -231,17 +240,19 @@ class Tree:
               break
             # busca la branch mas cercana
             elif ((d <= max_dist ** 2) and (closest == "null" or d < record)):
+              """
               f = b.dir / np.linalg.norm(b.dir)
               o = (l.pos - b.pos) / np.linalg.norm(l.pos - b.pos)
               c = np.array([f]).dot(o)
               rad = math.acos(float(round(c[0], 6)))
               grado = rad * (360 / math.pi)
-              aper = self.fun_apertura(b)
-              #aper = self.fun_apertura_automatico(b,ocupacion_actual)
+              #aper = self.fun_apertura(b)
+              aper = self.fun_apertura_automatico(b,ocupacion_actual)
               if (grado < aper):
-                closest = b
-                closestDir = dir
-                record = d
+              """
+              closest = b
+              closestDir = dir
+              record = d
           # si encontró el punto mas cercano, lo normaliza, calcula la nueva direccion y suma una Leaf al count
           if (closest != "null"):
             closestDir = closestDir / np.linalg.norm(closestDir)
@@ -295,6 +306,7 @@ class Tree:
     ax.scatter(x2, y2, z2, c='#900040', marker='o', s=0.01)
 
     grosores = []
+    #grosoresunitario = []
     nor = np.array([])
     for g in range(len(x1)):
       nor = np.append(nor,self.branches[g+1].grosor)
@@ -304,6 +316,9 @@ class Tree:
       grosordib = self.branches[i+1].grosor/np.linalg.norm(nor)*grosor_max
       ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=grosordib)
       grosores.append((grosordib))
+      #grosores.append(self.branches[i+1].grosor)
+      #grosoresunitario.append(1)
+    print(grosores)
 
     face_color = (0.5, 0.5, 0.5, 0.1)  # Gray with 50% transparency
     edge_color = (0.5, 0.5, 0.5, 0.1)  # Gray with full opacity
@@ -332,42 +347,6 @@ class Tree:
 
     #------------------------------------------------------------------MALLA 3d
 
-    # Create points
-    points = vtk.vtkPoints()
-    for i in range(len(x1)):
-      points.InsertNextPoint(x1[i], y1[i], z1[i])
-      points.InsertNextPoint(x2[i], y2[i], z2[i])
-
-    # Create lines
-    lines = vtk.vtkCellArray()
-    for i in range(len(x1)):
-      line = vtk.vtkLine()
-      line.GetPointIds().SetId(0, 2 * i)  # Set the starting point of the line
-      line.GetPointIds().SetId(1, 2 * i + 1)  # Set the ending point of the line
-      lines.InsertNextCell(line)
-
-    # Create radii array
-    radii_array = vtk.vtkDoubleArray()
-    radii_array.SetNumberOfValues(len(grosores))
-    radii_array.SetName("Radii")
-    for i, radius in enumerate(grosores):
-      radii_array.SetValue(i, radius)
-
-    # Create a polydata object
-    polydata = vtk.vtkPolyData()
-    polydata.SetPoints(points)
-    polydata.SetLines(lines)
-    polydata.GetCellData().AddArray(radii_array)
-
-   # polydata = vtk.vtkPolyDataNormals(polydata.GetData())
-
-    # Write the polydata to a file
-    writer = vtk.vtkXMLPolyDataWriter()
-    writer.SetFileName("outputCHAT.vtp")  # Output file name
-    writer.SetInputData(polydata)
-    writer.Write()
-
-    """
     # Create a VTK renderer and render window
     renderer = vtk.vtkRenderer()
     render_window = vtk.vtkRenderWindow()
@@ -395,8 +374,73 @@ class Tree:
     polydata.SetLines(lines)
     polydata.GetPointData().AddArray(radii)
     polydata.GetPointData().SetActiveScalars("TubeRadius")
-    
-    """
+
+    #writer = vtk.vtkPolyDataWriter()
+    #writer.SetFileName("pruebaaa.vtk")
+    #writer.SetInputData(polydata)
+    #writer.Write()
+
+    x = np.concatenate((x1, x2))
+    y = np.concatenate((y1, y2))
+    z = np.concatenate((z1, z2))
+
+    radii = np.array(grosores)
+    ArrayDict = {
+      'Points': np.column_stack((x,y,z)).astype(np.float),
+      'PointData': {'Radii': radii.astype(np.float)},  # Add other point data as needed
+      'CellData': {'CellPointIds': np.arange(len(x)).reshape(-1, 2)}  # Assuming each segment is a separate line
+    }
+    numpy_cent = vmtkn.vmtkNumpyToCenterlines()
+    numpy_cent.ArrayDict= ArrayDict
+    numpy_cent.Execute()
+    #v = view.vmtkCenterlineViewer()
+    #v.Centerlines = polydata
+    #v.Execute()
+
+    # Use vmtkcenterlinemodeller to convert centerlines to an image
+    centerlineModeler = clm.vmtkCenterlineModeller()
+    centerlineModeler.Centerlines = polydata
+    #centerlineModeler.Centerlines = numpy_cent.Centerlines
+    centerlineModeler.RadiusArrayName = "TubeRadius"
+    centerlineModeler.NegateFunction = True
+    centerlineModeler.SampleDimensions = [100,100,100]
+    # Execute the algorithm
+    centerlineModeler.Execute()
+
+    #vv = imviewer.vmtkImageViewer()
+    #vv.Image = centerlineModeler.Image
+    #vv.Execute()
+
+    # Get the output image data
+    outputImageData = centerlineModeler.Image
+
+    marching = vmtkm.vmtkMarchingCubes()
+    marching.Level= -3
+    marching.Image = outputImageData
+    marching.Execute()
+
+    #v = view.vmtkCenterlineViewer()
+    #v.Centerlines = marching.Surface
+    #v.Execute()
+
+    sur = marching.Surface
+    write_v = vmtks.vmtkSurfaceWriter()
+    write_v.Format = "stl"
+    write_v.Surface = sur
+    write_v.OutputFileName = "outMarching2.stl"
+    write_v.Execute()
+
+
+    # Save the result as a .vtk file
+
+    #vtk_writer = vi.vmtkImageWriter()
+    #vtk_writer.Image = outputImageData
+    #vtk_writer.Format = "vtk"
+    #vtk_writer.OutputFileName = "outputImage2.vtk"
+    #vtk_writer.Execute()
+
+
+
     """
     renderer = vtk.vtkRenderer()
     render_window = vtk.vtkRenderWindow()
