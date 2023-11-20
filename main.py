@@ -35,7 +35,7 @@ apertura_min = 90.0
 grosor_max = 1
 delta= 2 #coeficiente de variacion de apertura
 sigma = 0.01 # coeficiente de convergencia
-porcentaje_ocupacion= 50.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger = 4 #cant de iteraciones iguales para llegar a la convergencia
 porcentaje_sampleo = 50 # porcentaje de puntos de atraccion
 
