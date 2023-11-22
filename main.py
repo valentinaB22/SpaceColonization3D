@@ -23,19 +23,20 @@ import vmtk.vmtkscripts as vmtksc
 import vmtk.vmtkcenterlineviewer as view
 import vmtk.vmtkimageviewer as imviewer
 
+
 # Load the STL files and add the vectors to the plot
-your_mesh = mesh.Mesh.from_file('torus.stl')
-triiiimesh = trimesh.load('torus.stl')
+your_mesh = mesh.Mesh.from_file('rabbit_free.stl')
+triiiimesh = trimesh.load('rabbit_free.stl')
 print(triiiimesh.vertices[1])
 ####################################parametros
 max_dist=100
-min_dist =5
+min_dist =10
 apertura_max=90.0
 apertura_min = 90.0
-grosor_max = 1
+grosor_max = 10
 delta= 2 #coeficiente de variacion de apertura
 sigma = 0.01 # coeficiente de convergencia
-porcentaje_ocupacion= 10.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
+porcentaje_ocupacion= 50.0 #el arbol va a crecer hasta ese porcentaje de ocupacion, dependiendo las leaves qe queden.
 cant_converger = 4 #cant de iteraciones iguales para llegar a la convergencia
 porcentaje_sampleo = 50 # porcentaje de puntos de atraccion
 
@@ -69,7 +70,7 @@ class Leaf:
 ###################################Clase branch
 class Branch:
   count = 0
-  len_aux = 5
+  len_aux = 10
   parent=None
   pos=None
   dir=None
@@ -124,13 +125,13 @@ class Tree:
       leaf = Leaf(x[i], y[i], z[i])
       self.leaves.append(leaf)
     #v1 = np.array([6 ,10 ,30.66895485]) #corazon
-    #v1 = np.array([0, 0, 20])  # rabbit_free
+    v1 = np.array([0, 0, 20])  # rabbit_free
     #v1 = np.array([0, 0, 0])
     #v1 = np.array([50, 0, 0]) #esfera
     #v1 = np.array([27, -14, 14]) #para el stanford_bunny
     #v1 = np.array([10.5,13,5]) #hand
     #v1 = np.array([3,88,3]) #hand desde dedo
-    v1 = np.array([116,17, -15]) #torus
+    #v1 = np.array([116,17, -15]) #torus
     #v1 = np.array([6,160,5])  #human
     #v1 = np.array([186, 131, 172])  # aorta
     #v1 = np.array([206, 154, 221])  # pancreas
@@ -305,20 +306,39 @@ class Tree:
     ax.scatter(x1, y1, z1, c='#900040', marker='o', s=0.01)
     ax.scatter(x2, y2, z2, c='#900040', marker='o', s=0.01)
 
+
     grosores = []
     #grosoresunitario = []
     nor = np.array([])
     for g in range(len(x1)):
       nor = np.append(nor,self.branches[g+1].grosor)
 
+    polydata = vtk.vtkPolyData()
+    points = vtk.vtkPoints()
+    lines = vtk.vtkCellArray()
+    radii = vtk.vtkDoubleArray()
+    radii.SetName("TubeRadius")
+    radii.SetNumberOfValues(len(grosores))
+
+    # Add points and lines to the polydata
     # Scatter plot for lines (branches)
     for i in range(len(x1)):
       grosordib = self.branches[i+1].grosor/np.linalg.norm(nor)*grosor_max
       ax.plot([x1[i], x2[i]], [y1[i], y2[i]], [z1[i], z2[i]], color='#900040', linewidth=grosordib)
       grosores.append((grosordib))
+
+      points.InsertNextPoint(x1[i], y1[i], z1[i])
+      points.InsertNextPoint(x2[i], y2[i], z2[i])
+      lines.InsertNextCell(2)
+      lines.InsertCellPoint(2 * i)
+      lines.InsertCellPoint(2 * i + 1)
+      radius = (float(round(grosordib +1, 4)))
+      radii.InsertNextValue(radius)
+      print("RadioPolydata:",radius)
+
       #grosores.append(self.branches[i+1].grosor)
       #grosoresunitario.append(1)
-    print(grosores)
+
 
     face_color = (0.5, 0.5, 0.5, 0.1)  # Gray with 50% transparency
     edge_color = (0.5, 0.5, 0.5, 0.1)  # Gray with full opacity
@@ -353,22 +373,6 @@ class Tree:
     render_window.AddRenderer(renderer)
 
     # Create a VTK polydata object to represent the lines
-    polydata = vtk.vtkPolyData()
-    points = vtk.vtkPoints()
-    lines = vtk.vtkCellArray()
-    radii = vtk.vtkDoubleArray()
-    radii.SetName("TubeRadius")
-    radii.SetNumberOfValues(len(grosores))
-
-    # Add points and lines to the polydata
-    for i in range(len(x1)):
-      points.InsertNextPoint(x1[i], y1[i], z1[i])
-      points.InsertNextPoint(x2[i], y2[i], z2[i])
-      lines.InsertNextCell(2)
-      lines.InsertCellPoint(2 * i)
-      lines.InsertCellPoint(2 * i + 1)
-      radius = grosores[i]  # Assuming you have a 'radius' value in your data
-      radii.InsertNextValue(radius)
 
     polydata.SetPoints(points)
     polydata.SetLines(lines)
@@ -380,22 +384,23 @@ class Tree:
     #writer.SetInputData(polydata)
     #writer.Write()
 
-    x = np.concatenate((x1, x2))
-    y = np.concatenate((y1, y2))
-    z = np.concatenate((z1, z2))
+    #x = np.concatenate((x1, x2))
+    #y = np.concatenate((y1, y2))
+    #z = np.concatenate((z1, z2))
 
-    radii = np.array(grosores)
-    ArrayDict = {
-      'Points': np.column_stack((x,y,z)).astype(np.float),
-      'PointData': {'Radii': radii.astype(np.float)},  # Add other point data as needed
-      'CellData': {'CellPointIds': np.arange(len(x)).reshape(-1, 2)}  # Assuming each segment is a separate line
-    }
-    numpy_cent = vmtkn.vmtkNumpyToCenterlines()
-    numpy_cent.ArrayDict= ArrayDict
-    numpy_cent.Execute()
-    #v = view.vmtkCenterlineViewer()
-    #v.Centerlines = polydata
-    #v.Execute()
+    #radii = np.array(grosores)
+    #ArrayDict = {
+     # 'Points': np.column_stack((x,y,z)).astype(np.float),
+      #'PointData': {'Radii': radii.astype(np.float)},  # Add other point data as needed
+      #'CellData': {'CellPointIds': np.arange(len(x)).reshape(-1, 2)}  # Assuming each segment is a separate line
+    #}
+    #numpy_cent = vmtkn.vmtkNumpyToCenterlines()
+    #numpy_cent.ArrayDict= ArrayDict
+    #numpy_cent.Execute()
+
+    v = view.vmtkCenterlineViewer()
+    v.Centerlines = polydata
+    v.Execute()
 
     # Use vmtkcenterlinemodeller to convert centerlines to an image
     centerlineModeler = clm.vmtkCenterlineModeller()
@@ -403,7 +408,7 @@ class Tree:
     #centerlineModeler.Centerlines = numpy_cent.Centerlines
     centerlineModeler.RadiusArrayName = "TubeRadius"
     centerlineModeler.NegateFunction = True
-    centerlineModeler.SampleDimensions = [100,100,100]
+    centerlineModeler.SampleDimensions = [64,64,64]
     # Execute the algorithm
     centerlineModeler.Execute()
 
@@ -415,31 +420,30 @@ class Tree:
     outputImageData = centerlineModeler.Image
 
     marching = vmtkm.vmtkMarchingCubes()
-    marching.Level= -3
+    marching.Level= -5
     marching.Image = outputImageData
     marching.Execute()
 
-    #v = view.vmtkCenterlineViewer()
-    #v.Centerlines = marching.Surface
-    #v.Execute()
+    v = view.vmtkCenterlineViewer()
+    v.Centerlines = marching.Surface
+    v.Execute()
 
     sur = marching.Surface
     write_v = vmtks.vmtkSurfaceWriter()
     write_v.Format = "stl"
     write_v.Surface = sur
-    write_v.OutputFileName = "outMarching2.stl"
+    write_v.OutputFileName = "outMarchingX.stl"
     write_v.Execute()
 
 
     # Save the result as a .vtk file
-
     #vtk_writer = vi.vmtkImageWriter()
     #vtk_writer.Image = outputImageData
     #vtk_writer.Format = "vtk"
-    #vtk_writer.OutputFileName = "outputImage2.vtk"
+    #vtk_writer.OutputFileName = "outputImageX.vtk"
     #vtk_writer.Execute()
 
-
+    plt.show()
 
     """
     renderer = vtk.vtkRenderer()
@@ -540,7 +544,7 @@ class Tree:
     render_window.Render()
     iren.Start()
     """
-    plt.show()
+
 """
     #------------------------------------------------------------------MALLA 3d
     # --------------------------------------CON TRIANGULOS-------------------------
